@@ -1,5 +1,5 @@
 import { readdir, readFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pool, withTransaction } from './pool.js';
 import { log } from '../lib/logger.js';
@@ -59,7 +59,15 @@ export async function migrate(): Promise<void> {
 }
 
 // Allow running directly: `tsx src/db/migrate.ts` or `node dist/db/migrate.js`.
-if (import.meta.url === `file://${process.argv[1]}`) {
+// We compare resolved filesystem paths rather than hand-built URL strings,
+// because file:// URL formatting differs from argv paths across platforms
+// (notably on Windows: backslashes and drive-letter casing). Normalizing both
+// to an absolute path via fileURLToPath makes this check portable.
+const invokedDirectly =
+  process.argv[1] !== undefined &&
+  resolve(fileURLToPath(import.meta.url)) === resolve(process.argv[1]);
+
+if (invokedDirectly) {
   migrate()
     .then(() => pool.end())
     .then(() => process.exit(0))
