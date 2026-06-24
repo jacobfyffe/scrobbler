@@ -1,0 +1,33 @@
+{
+  "name": "scrobbler",
+  "version": "0.1.0",
+  "description": "Spotify scrobbler — polls Recently Played and persists play events.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/api/server.js",
+    "start:worker": "node dist/worker/index.js",
+    "dev": "tsx watch src/api/server.ts",
+    "dev:worker": "tsx watch src/worker/index.ts",
+    "migrate": "node dist/db/migrate.js",
+    "migrate:dev": "tsx src/db/migrate.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --ext .ts",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.0",
+    "@types/pg": "^8.11.10",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
