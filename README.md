@@ -64,10 +64,11 @@ A per-account cursor (`last_played_after_ms`) is passed as the `after` query par
 
 ## Setup
 
-Prerequisites: Node 20+, Docker (for Postgres), and a Spotify Developer app.
+Prerequisites: Node 20+, PostgreSQL (via Docker, or a local install), and a Spotify Developer app.
 
 ```bash
-# 1. Start Postgres
+# 1. Start Postgres (Docker). Or use a local Postgres install and point
+#    DATABASE_URL in your .env at it instead.
 docker compose up -d
 
 # 2. Install dependencies
@@ -86,12 +87,15 @@ npm run dev
 npm run dev:worker
 ```
 
-Then visit `http://localhost:3000/connect/spotify` to connect an account. Play something on Spotify, wait for the next poll tick, and rows will appear in the `plays` table.
+Then visit `http://127.0.0.1:3000/connect/spotify` to connect an account. Play something on Spotify, wait for the next poll tick, and rows will appear in the `plays` table.
+
+> **Note:** Use `127.0.0.1`, not `localhost`. As of April 2025 Spotify rejects `localhost` as a redirect URI and requires the explicit loopback IP. The address you visit in the browser must match the registered redirect URI exactly.
 
 ### Spotify dashboard setup
 
 1. Create an app at the Spotify Developer Dashboard.
-2. Add `http://localhost:3000/callback/spotify` as a Redirect URI.
+2. Add `http://127.0.0.1:3000/callback/spotify` as a Redirect URI. (Spotify
+   requires the explicit loopback IP — `localhost` is not accepted.)
 3. While in Development Mode, add your own Spotify account under the app's user-management settings.
 
 ## Scripts
