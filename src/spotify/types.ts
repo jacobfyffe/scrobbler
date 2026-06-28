@@ -7,10 +7,9 @@
  * can extract more fields later without re-fetching.
  *
  * Note: the Recently Played endpoint does NOT include ISRC on the track object.
- * ISRC lives on the full Track object's `external_ids` (from GET /v1/tracks),
- * which would require an extra call. We model the field as optional so the
- * ingestion path can populate it if/when we add that enrichment step; for now
- * it will simply be absent.
+ * ISRC lives on the full Track object's `external_ids` (from GET /v1/tracks/{id}).
+ * The ingestion path stores plays without ISRC first, then an enrichment step
+ * (see getTrack / enrichAccountIsrcs) backfills it via that endpoint.
  */
 
 export interface SpotifyTokenResponse {

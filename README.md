@@ -45,7 +45,7 @@ Splitting the worker from the API is the central design decision: the web tier o
 | `src/lib` | Logger; `sleep` and `withRetry` (backoff honoring server hints). |
 | `src/db` | Connection pool, transaction helper, SQL migration runner. |
 | `src/spotify` | API types, OAuth helpers, and the rate-limit-aware client. |
-| `src/scrobbler` | Data-access layer + the per-account ingestion service. |
+| `src/scrobbler` | Data-access layer, per-account ingestion, and ISRC enrichment. |
 | `src/api` | Express server: OAuth routes, health check. |
 | `src/worker` | The polling loop with graceful shutdown. |
 
@@ -58,7 +58,7 @@ A per-account cursor (`last_played_after_ms`) is passed as the `after` query par
 ## Known API constraints
 
 - The Recently Played feed returns at most **50 items** per page and only covers recent history — another reason polling must be frequent enough not to miss plays between ticks.
-- **ISRC is not present** on the recently-played track payload; it lives on the full Track object (`GET /v1/tracks`). The schema and types include an `isrc` field ready for a future enrichment step, but it will be null until that step is added.
+- **ISRC is not on the recently-played payload** — it lives on the full Track object (`GET /v1/tracks/{id}`). After ingesting a batch, the worker backfills ISRCs by resolving each un-enriched track and writing the code onto its stored plays. ISRC is the primary cross-service identity key for the downstream matching layer. Enrichment is best-effort and isolated from ingestion: an unresolved track stays null and is retried on a later tick. (The batch tracks endpoint returns 403 for Development Mode apps after Spotify's early-2026 API migration, so enrichment uses single-track requests.)
 - Spotify's feed is known to occasionally return duplicate or slightly-off entries; the unique constraint absorbs duplicates.
 - Public launch requires Spotify's **Extended Quota** review. In Development Mode, only users you explicitly add in the dashboard can connect.
 

@@ -116,3 +116,47 @@ export async function insertPlaysAndAdvanceCursor(
 export async function touchPolled(accountId: string): Promise<void> {
   await query('UPDATE spotify_accounts SET last_polled_at = now() WHERE id = $1', [accountId]);
 }
+
+/**
+ * Distinct Spotify track IDs for an account that still have no ISRC.
+ *
+ * ISRC is a property of the track, not the play, so we dedupe by track_id —
+ * one enrichment lookup covers every play of that track. Capped because the
+ * caller enriches one batch (<=50 IDs) per call.
+ */
+export async function getTrackIdsMissingIsrc(
+  accountId: string,
+  limit: number,
+): Promise<string[]> {
+  const { rows } = await query<{ track_id: string }>(
+    `SELECT DISTINCT track_id
+       FROM plays
+      WHERE spotify_account_id = $1 AND isrc IS NULL
+      LIMIT $2`,
+    [accountId, limit],
+  );
+  return rows.map((r) => r.track_id);
+}
+
+/**
+ * Write a resolved ISRC onto every play of a given track for an account.
+ *
+ * Keyed by (account, track_id) so a single resolved track backfills all its
+ * plays at once. Only touches rows still missing an ISRC, so it's idempotent
+ * and won't overwrite anything already set.
+ *
+ * Returns the number of play rows updated.
+ */
+export async function setIsrcForTrack(
+  accountId: string,
+  trackId: string,
+  isrc: string,
+): Promise<number> {
+  const result = await query(
+    `UPDATE plays
+        SET isrc = $3
+      WHERE spotify_account_id = $1 AND track_id = $2 AND isrc IS NULL`,
+    [accountId, trackId, isrc],
+  );
+  return result.rowCount ?? 0;
+}

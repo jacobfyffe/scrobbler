@@ -6,6 +6,7 @@ import {
   updateAccountTokens,
   type SpotifyAccount,
 } from './repository.js';
+import { enrichAccountIsrcs } from './enrich.js';
 import { log } from '../lib/logger.js';
 
 /**
@@ -36,6 +37,22 @@ async function ensureFreshToken(account: SpotifyAccount): Promise<string> {
   return token.access_token;
 }
 
+/**
+ * Run ISRC enrichment, isolated so its failure cannot disrupt ingestion.
+ * Plays are already durably stored by the time this runs, so any error here is
+ * logged and swallowed — the affected tracks are simply retried on a later tick.
+ */
+async function runEnrichment(accountId: string, accessToken: string): Promise<void> {
+  try {
+    await enrichAccountIsrcs(accountId, accessToken);
+  } catch (error) {
+    log.warn('ISRC enrichment failed (plays are stored; will retry next tick)', {
+      accountId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
 export async function ingestAccount(account: SpotifyAccount): Promise<number> {
   let accessToken = await ensureFreshToken(account);
 
@@ -60,6 +77,10 @@ export async function ingestAccount(account: SpotifyAccount): Promise<number> {
 
   if (page.items.length === 0) {
     await touchPolled(account.id);
+    // Even with no new plays, there may be a backlog of stored plays still
+    // missing ISRCs (e.g. plays captured before enrichment existed). Quiet
+    // ticks are a good time to chip away at that backlog.
+    await runEnrichment(account.id, accessToken);
     return 0;
   }
 
@@ -69,5 +90,8 @@ export async function ingestAccount(account: SpotifyAccount): Promise<number> {
     fetched: page.items.length,
     inserted,
   });
+
+  await runEnrichment(account.id, accessToken);
+
   return inserted;
 }
